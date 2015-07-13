@@ -25,7 +25,7 @@ class SPIFlash {
     _SPIFLASH_PREVERIFY = 2;
     _SPIFLASH_POSTVERIFY = 1;
 
-    _version = [1, 0, 0];
+    _version = [0, 1, 0];
 
     // -------------------------------------------------------------------------
     // constructor takes in pre-configured spi interface object and chip select GPIO
