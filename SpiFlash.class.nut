@@ -8,23 +8,24 @@
 // We used consts rather than statics for hardware optimization
 
 const ELECTRICIMP_SPIFLASH_WREN     = "\x06";       // write enable
-const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable - unused
 const ELECTRICIMP_SPIFLASH_RDID     = "\x9F";       // read identification
 const ELECTRICIMP_SPIFLASH_RDSR     = "\x05\x00";   // read status register
 const ELECTRICIMP_SPIFLASH_READ     = "\x03%c%c%c"; // read data
-const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID - unused
-const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID - unused
 const ELECTRICIMP_SPIFLASH_SE       = "\x20%c%c%c"; // sector erase (Any 4kbyte sector set to 0xff)
-const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff) - unused
-const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff) - unused
 const ELECTRICIMP_SPIFLASH_PP       = "\x02%c%c%c"; // page program
 const ELECTRICIMP_SPIFLASH_DP       = "\xB9";       // deep power down
 const ELECTRICIMP_SPIFLASH_RDP      = "\xAB";       // release from deep power down
 
+const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable - unused
+const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff) - unused
+const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff) - unused
+const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID - unused
+const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID - unused
+
 const ELECTRICIMP_SPIFLASH_BLOCK_SIZE = 65536;
 const ELECTRICIMP_SPIFLASH_SECTOR_SIZE = 4096;
 
-const ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds
+const ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds (should be 10 seconds)
 
 class SPIFlash {
 
@@ -46,7 +47,7 @@ class SPIFlash {
     // Errors:
     static SPI_NOT_ENABLED = "Not enabled";
     static SPI_SECTOR_BOUNDARY = "This request must be aligned with a sector (4kb)"
-    static SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED = "Write failed";
+    static SPI_WRENABLE_FAILED = "Write failed";
     static SPI_WAITFORSTATUS_TIMEOUT = "Timeout waiting for status change";
 
     // constructor takes in pre-configured spi interface object and chip select GPIO
@@ -121,14 +122,15 @@ class SPIFlash {
     function erasesector(sector) {
         // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
-
         if ((sector % ELECTRICIMP_SPIFLASH_SECTOR_SIZE) != 0) throw SPI_SECTOR_BOUNDARY;
 
-        _cs_l_w(0);
         _wrenable();
+
+        _cs_l_w(0);
         _spi_w(format(ELECTRICIMP_SPIFLASH_SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
-        _waitForStatus();
         _cs_l_w(1);
+
+        _waitForStatus();
     }
 
     // spiflash.read(integer, integer) - Copies data from the SPI flash and returns it as a series of bytes.
@@ -178,6 +180,7 @@ class SPIFlash {
         if (verification & SPIFLASH_PREVERIFY) {
             data.seek(data_start);
             if (!_preverify(data, address, data_end-data_start)) {
+                throw "PREVERIFY FAILED";
                 return SPIFLASH_PREVERIFY;
             }
         }
@@ -217,27 +220,35 @@ class SPIFlash {
 
 
     //-------------------- PRIVATE METHODS --------------------//
-    function _preverify(data, addr, len) {
+    function _preverify(data, addr, len, chunk = 256) {
         // Verify in chunks no bigger than 256 bytes
-        if (len <= 256) {
+        if (len <= chunk) {
             local olddata = read(addr, len);
             if (olddata.len() != len) return false;
-            for (local i = 0; i < len; i++) {
-                local pre = olddata.readn('b');
-                local it = data.readn('b');
-                local post = pre & it;
-                if (post != it) return false;
+
+            // If we have more than 4 bytes to read, read as long int
+            // otherwise read as a single byte
+            local readbyte = len < 4 ? 'b' : 'i';
+            local inc = len < 4 ? 1 : 4;
+
+            for (local i = 0; i < len; i+=inc) {
+                local pre = olddata.readn(readbyte);
+                local it = data.readn(readbyte);
+                if ((pre & it) != it) return false;
             }
-        } else {
-            do {
-                local result = _preverify(data, addr, len >= 256 ? 256 : len);
-                if (result == false) return false;
-                len -= 256;
-                addr += 256;
-            } while (len > 0);
+
+            return true;
         }
+        do {
+            local result = _preverify(data, addr, len >= chunk ? chunk : len, chunk);
+            if (result == false) return false;
+            len -= chunk;
+            addr += chunk;
+        } while (len > 0);
+
         return true;
     }
+
 
     function _postverify(data, addr, len) {
         // Verify in chunks no bigger than 256 bytes
@@ -259,39 +270,46 @@ class SPIFlash {
     }
 
     function _write(addr, data) {
-        _cs_l_w(0);
-
         _wrenable();
+
+        _cs_l_w(0);
         _spi_w(format(ELECTRICIMP_SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         _spi_w(data);
-        _waitForStatus();
-
         _cs_l_w(1);
+
+        _waitForStatus();
     }
 
+    // -------------------------------------------------------------------------
     function _wrenable(timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
-        local now = _millis();
+        local end = _millis()+timeout;
 
         do {
+            _cs_l_w(0);
             _spi_w(ELECTRICIMP_SPIFLASH_WREN);
+            _cs_l_w(1);
 
-            if ((_spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1] & 0x03) == 0x02) {
-                return true;
-            }
-        } while (_millis() - now < timeout);
+            _cs_l_w(0);
+            local status = _spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1];
+            _cs_l_w(1);
 
-        throw SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED;
+            if ((status & 0x03) == 0x02) return true;
+        } while (_millis() >= end);
+
+        throw SPI_WRENABLE_FAILED;
+
     }
 
     function _waitForStatus(mask = 0x01, value = 0x00, timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
-        local now = _millis();
+        local end = _millis()+timeout;
         do {
-            if ((_spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1] & mask) == value) {
-                return;
-            }
-        } while (_millis() - now < timeout);
+            _cs_l_w(0);
+            local status = _spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1];
+            _cs_l_w(1);
+
+            if ((status & mask) == value) return;
+        } while (_millis() >= timeout);
 
         throw SPI_WAITFORSTATUS_TIMEOUT;
     }
-
 }
