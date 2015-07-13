@@ -8,16 +8,16 @@
 // We used consts rather than statics for hardware optimization
 
 const ELECTRICIMP_SPIFLASH_WREN     = "\x06";       // write enable
-const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable
+const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable - unused
 const ELECTRICIMP_SPIFLASH_RDID     = "\x9F";       // read identification
 const ELECTRICIMP_SPIFLASH_RDSR     = "\x05\x00";   // read status register
 const ELECTRICIMP_SPIFLASH_READ     = "\x03%c%c%c"; // read data
-const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID
-const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID
+const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID - unused
+const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID - unused
 const ELECTRICIMP_SPIFLASH_SE       = "\x20%c%c%c"; // sector erase (Any 4kbyte sector set to 0xff)
-const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff)
-const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff)
-const ELECTRICIMP_SPIFLASH_PP       = 0x02;         // page program
+const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff) - unused
+const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff) - unused
+const ELECTRICIMP_SPIFLASH_PP       = "\x02%c%c%c"; // page program
 const ELECTRICIMP_SPIFLASH_DP       = "\xB9";       // deep power down
 const ELECTRICIMP_SPIFLASH_RDP      = "\xAB";       // release from deep power down
 
@@ -262,7 +262,7 @@ class SPIFlash {
         _cs_l_w(0);
 
         _wrenable();
-        _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
+        _spi_w(format(ELECTRICIMP_SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         _spi_w(data);
         _waitForStatus();
 
