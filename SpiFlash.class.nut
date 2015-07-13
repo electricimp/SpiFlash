@@ -1,68 +1,61 @@
-/*
+// Copyright (c) 2015 Electric Imp
+// This file is licensed under the MIT License
+// http://opensource.org/licenses/MIT
 
-Designed to be fully compatible with hardware.spiflash https://electricimp.com/docs/api/hardware/spiflash/
+// This class is designed to be fully compatible with hardware.spiflash
 
-Notes:
-- There doesn't seem to be a non-destructive method for measuring the size()
+// Declare fully namespaced constants (ACCOUNT_CLASS_CONST)
+// We used consts rather than statics for hardware optimization
 
-*/
+const ELECTRICIMP_SPIFLASH_WREN     = "\x06";       // write enable
+const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable
+const ELECTRICIMP_SPIFLASH_RDID     = "\x9F";       // read identification
+const ELECTRICIMP_SPIFLASH_RDSR     = "\x05\x00";   // read status register
+const ELECTRICIMP_SPIFLASH_READ     = 0x03;         // read data
+const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID
+const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID
+const ELECTRICIMP_SPIFLASH_SE       = 0x20;         // sector erase (Any 4kbyte sector set to 0xff)
+const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff)
+const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff)
+const ELECTRICIMP_SPIFLASH_PP       = 0x02;         // page program
+const ELECTRICIMP_SPIFLASH_DP       = "\xB9";       // deep power down
+const ELECTRICIMP_SPIFLASH_RDP      = "\xAB";       // release from deep power down
 
+const ELECTRICIMP_SPIFLASH_BLOCK_SIZE = 65536;
+const ELECTRICIMP_SPIFLASH_SECTOR_SIZE = 4096;
 
-// -----------------------------------------------------------------------------
+const ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds
+
 class SPIFlash {
 
+    // Library version
+    _version = [1, 0, 0];
+
+    // class members
     _spi = null;
     _cs_l = null;
     _blocks = null;
+    _enabled = false;
 
+    // aliased functions to speed things up
     _cs_l_w = null;
     _spi_w = null;
     _spi_wr = null;
     _millis = null;
 
-    _enabled = false;
+    // Errors:
+    static SPI_NOT_ENABLED = "Not enabled";
+    static SPI_SECTOR_BOUNDARY = "This request must be aligned with a sector (4kb)"
+    static SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED = "Write failed";
+    static SPI_WAITFORSTATUS_TIMEOUT = "Timeout waiting for status change";
 
-    _SPIFLASH_PREVERIFY = 2;
-    _SPIFLASH_POSTVERIFY = 1;
-
-    _version = [0, 1, 0];
-
-    // -------------------------------------------------------------------------
     // constructor takes in pre-configured spi interface object and chip select GPIO
     // the third parameter lets you specify the number of 64k blocks
     constructor(spi, cs_l, blocks = 64) {
-
-        const WREN     = 0x06; // write enable
-        const WRDI     = 0x04; // write disable
-        const RDID     = 0x9F; // read identification
-        const RDSR     = 0x05; // read status register
-        const READ     = 0x03; // read data
-        const RES      = 0xAB; // read electronic ID
-        const REMS     = 0x90; // read electronic mfg & device ID
-        const SE       = 0x20; // sector erase (Any 4kbyte sector set to 0xff)
-        const BE       = 0x52; // block erase (Any 64kbyte sector set to 0xff)
-        const CE       = 0x60; // chip erase (full device set to 0xff)
-        const PP       = 0x02; // page program
-        const DP       = 0xB9; // deep power down
-        const RDP      = 0xAB; // release from deep power down
-
-        const BLOCK_SIZE = 65536;
-        const SECTOR_SIZE = 4096;
-
-        const COMMAND_TIMEOUT = 10000; // milliseconds
-
-        const SPI_NOT_ENABLED = "Not enabled";
-        const SPI_SECTOR_BOUNDARY = "This request must be aligned with a sector (4kb)"
-        const SPI_WRENABLE_FAILED = "Write failed";
-        const SPI_WAITFORSTATUS_TIMEOUT = "Timeout waiting for status change";
-
         _spi = spi;
         _cs_l = cs_l;
         _blocks = blocks;
-        _enabled = true;
-
-        // We can safely configure the GPIO lines
-        _cs_l.configure(DIGITAL_OUT, 1);
+        _enabled = false;
 
         // For speed, we cache a few functions
         _cs_l_w = _cs_l.write.bindenv(_cs_l);
@@ -70,54 +63,54 @@ class SPIFlash {
         _spi_wr = _spi.writeread.bindenv(spi);
         _millis = hardware.millis.bindenv(hardware);
 
-        // Make sure we have SPIFLASH_PREVERIFY and SPIFLASH_POSTVERIFY defined and accurate
-        try {
-            _SPIFLASH_PREVERIFY = SPIFLASH_PREVERIFY;
-            _SPIFLASH_POSTVERIFY = SPIFLASH_POSTVERIFY;
-        } catch (e) { }
+        // We can safely configure the GPIO lines
+        _cs_l.configure(DIGITAL_OUT, 1);
     }
 
-    // -------------------------------------------------------------------------
     // spiflash.configure() - [optional] configures the SPI lines
     function configure(speed = 15000) {
         return _spi.configure(CLOCK_IDLE_LOW | MSB_FIRST, speed);
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.size() â€“ Returns the total number of bytes in the SPI flash that are available to Squirrel.
+    // spiflash.size() - Returns the total number of bytes in the SPI flash that are available to Squirrel.
     function size() {
-        return _blocks * BLOCK_SIZE;
+        // Throw error if disabled
+        if (!_enabled) throw SPI_NOT_ENABLED;
+
+        return _blocks * ELECTRICIMP_SPIFLASH_BLOCK_SIZE;
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.disable() â€“ Disables the SPI flash for reading and writing.
+    // spiflash.disable() - Disables the SPI flash for reading and writing.
     function disable() {
-        if (!_enabled) throw SPI_NOT_ENABLED;
+        // if we're already disabled, return
+        if(!_enabled) return;
+
         _enabled = false;
 
         _cs_l_w(0);
-        _spi_w(DP.tochar());
+        _spi_w(ELECTRICIMP_SPIFLASH_DP);
         _cs_l_w(1);
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.enable() â€“ Enables the SPI flash for reading and writing.
+    // spiflash.enable() - Enables the SPI flash for reading and writing.
     function enable() {
+        // If we're already enabled, return
+        if (_enabled) return;
+
         _enabled = true;
 
         _cs_l_w(0);
-        _spi_w(RDP.tochar());
+        _spi_w(ELECTRICIMP_SPIFLASH_RDP);
         _cs_l_w(1);
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.chipid() â€“ Returns the identity of the SPI flash chip.
+    // spiflash.chipid() - Returns the identity of the SPI flash chip.
     function chipid() {
-
+        // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
 
         _cs_l_w(0);
-        _spi_w(RDID.tochar());
+        _spi_w(ELECTRICIMP_SPIFLASH_RDID);
         local data = _spi.readblob(3);
         _cs_l_w(1);
 
@@ -125,30 +118,29 @@ class SPIFlash {
 
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.erasesector(integer) â€“ Erases a 4KB sector of the SPI flash.
+    // spiflash.erasesector(integer) - Erases a 4KB sector of the SPI flash.
     function erasesector(sector) {
-
+        // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
-        if ((sector % SECTOR_SIZE) != 0) throw SPI_SECTOR_BOUNDARY;
+
+        if ((sector % ELECTRICIMP_SPIFLASH_SECTOR_SIZE) != 0) throw SPI_SECTOR_BOUNDARY;
 
         _wrenable();
         _cs_l_w(0);
-        _spi_w(format("%c%c%c%c", SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
+        _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
         _cs_l_w(1);
 
         _waitForStatus();
 
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.read(integer, integer) â€“ Copies data from the SPI flash and returns it as a series of bytes.
+    // spiflash.read(integer, integer) - Copies data from the SPI flash and returns it as a series of bytes.
     function read(addr, bytes) {
-
+        // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
 
         _cs_l_w(0);
-        _spi_w(format("%c%c%c%c", READ, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
+        _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_READ, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         local readBlob = _spi.readblob(bytes);
         _cs_l_w(1);
 
@@ -156,20 +148,19 @@ class SPIFlash {
 
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.readintoblob(integer, blob, integer) â€“ Copies data from the SPI flash storage into a pre-existing blob.
+    // spiflash.readintoblob(integer, blob, integer) - Copies data from the SPI flash storage into a pre-existing blob.
     function readintoblob(addr, data, bytes) {
-        // This is a silly hack but I can't do much about it.
         data.writeblob(read(addr, bytes));
     }
 
-    // -------------------------------------------------------------------------
-    // spiflash.write(integer, blob, const, integer, integer) â€“ Writes a full or partial blob into the SPI flash.
+    // spiflash.write(integer, blob, const, integer, integer) - Writes a full or partial blob into the SPI flash.
     function write(address, data, verification = 0, data_start = null, data_end = null) {
-
+        // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
 
-        local addr = address, start = data_start, end = data_end;
+        local addr = address;
+        local start = data_start
+        local end = data_end;
 
         if (typeof data == "string") {
             // Convert string to blob
@@ -188,10 +179,10 @@ class SPIFlash {
         if (end == null) end = data_end = data.len();
 
         // Preverify if requested
-        if (verification & _SPIFLASH_PREVERIFY) {
+        if (verification & SPIFLASH_PREVERIFY) {
             data.seek(data_start);
             if (!_preverify(data, address, data_end-data_start)) {
-                return _SPIFLASH_PREVERIFY;
+                return SPIFLASH_PREVERIFY;
             }
         }
 
@@ -220,17 +211,18 @@ class SPIFlash {
         }
 
         // Post verify if requested
-        if (verification & _SPIFLASH_POSTVERIFY) {
+        if (verification & SPIFLASH_POSTVERIFY) {
             data.seek(data_start);
             if (!_postverify(data, address, data_end-data_start)) {
-                return _SPIFLASH_POSTVERIFY;
+                return SPIFLASH_POSTVERIFY;
             }
         }
 
         return 0;
     }
 
-    // -------------------------------------------------------------------------
+
+    //-------------------- PRIVATE METHODS --------------------//
     function _preverify(data, addr, len) {
         // Verify in chunks no bigger than 256 bytes
         if (len <= 256) {
@@ -253,7 +245,6 @@ class SPIFlash {
         return true;
     }
 
-    // -------------------------------------------------------------------------
     function _postverify(data, addr, len) {
         // Verify in chunks no bigger than 256 bytes
         if (len <= 256) {
@@ -273,49 +264,42 @@ class SPIFlash {
         return true;
     }
 
-    // -------------------------------------------------------------------------
     function _write(addr, data) {
-
         _wrenable();
 
         _cs_l_w(0);
-        _spi_w(format("%c%c%c%c", PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
+        _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         _spi_w(data);
         _cs_l_w(1);
 
         _waitForStatus();
     }
 
-    // -------------------------------------------------------------------------
-    function _wrenable(timeout = COMMAND_TIMEOUT) {
-
+    function _wrenable(timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
         local now = _millis();
         do {
             _cs_l_w(0);
-            _spi_w(WREN.tochar());
+            _spi_w(ELECTRICIMP_SPIFLASH_WREN);
             _cs_l_w(1);
 
             if ((_getStatus() & 0x03) == 0x02) return true;
         } while (_millis() - now < timeout);
 
-        throw SPI_WRENABLE_FAILED;
+        throw SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED;
 
     }
 
-    // -------------------------------------------------------------------------
     function _getStatus() {
-
         _cs_l_w(0);
-        local status = _spi_wr(format("%c%c", RDSR, 0));
+        local status = _spi_wr(ELECTRICIMP_SPIFLASH_RDSR);
         _cs_l_w(1);
 
         return status[1];
     }
 
-    // -------------------------------------------------------------------------
-    function _waitForStatus(mask = 0x01, value = 0x00, timeout = COMMAND_TIMEOUT) {
-
+    function _waitForStatus(mask = 0x01, value = 0x00, timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
         local now = _millis();
+
         do {
             if ((_getStatus() & mask) == value) {
                 return;
