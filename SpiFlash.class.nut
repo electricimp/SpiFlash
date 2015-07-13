@@ -11,10 +11,10 @@ const ELECTRICIMP_SPIFLASH_WREN     = "\x06";       // write enable
 const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable
 const ELECTRICIMP_SPIFLASH_RDID     = "\x9F";       // read identification
 const ELECTRICIMP_SPIFLASH_RDSR     = "\x05\x00";   // read status register
-const ELECTRICIMP_SPIFLASH_READ     = 0x03;         // read data
+const ELECTRICIMP_SPIFLASH_READ     = "\x03%c%c%c"; // read data
 const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID
 const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID
-const ELECTRICIMP_SPIFLASH_SE       = 0x20;         // sector erase (Any 4kbyte sector set to 0xff)
+const ELECTRICIMP_SPIFLASH_SE       = "\x20%c%c%c"; // sector erase (Any 4kbyte sector set to 0xff)
 const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff)
 const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff)
 const ELECTRICIMP_SPIFLASH_PP       = 0x02;         // page program
@@ -35,7 +35,7 @@ class SPIFlash {
     _spi = null;
     _cs_l = null;
     _blocks = null;
-    _enabled = false;
+    _enabled = null;
 
     // aliased functions to speed things up
     _cs_l_w = null;
@@ -115,7 +115,6 @@ class SPIFlash {
         _cs_l_w(1);
 
         return (data[0] << 16) | (data[1] << 8) | (data[2]);
-
     }
 
     // spiflash.erasesector(integer) - Erases a 4KB sector of the SPI flash.
@@ -125,13 +124,11 @@ class SPIFlash {
 
         if ((sector % ELECTRICIMP_SPIFLASH_SECTOR_SIZE) != 0) throw SPI_SECTOR_BOUNDARY;
 
-        _wrenable();
         _cs_l_w(0);
-        _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
-        _cs_l_w(1);
-
+        _wrenable();
+        _spi_w(format(ELECTRICIMP_SPIFLASH_SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
         _waitForStatus();
-
+        _cs_l_w(1);
     }
 
     // spiflash.read(integer, integer) - Copies data from the SPI flash and returns it as a series of bytes.
@@ -140,12 +137,11 @@ class SPIFlash {
         if (!_enabled) throw SPI_NOT_ENABLED;
 
         _cs_l_w(0);
-        _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_READ, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
+        _spi_w(format(ELECTRICIMP_SPIFLASH_READ, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         local readBlob = _spi.readblob(bytes);
         _cs_l_w(1);
 
         return readBlob;
-
     }
 
     // spiflash.readintoblob(integer, blob, integer) - Copies data from the SPI flash storage into a pre-existing blob.
@@ -193,7 +189,6 @@ class SPIFlash {
         // Realign to the chunk boundary
         local left_in_chunk = 256 - (addr % 256);
         if (left_in_chunk > 0) {
-            // server.log(format("Realign: addr=%d, start=%d, left=%d", addr, start, left_in_chunk))
             _write(addr, data_r(left_in_chunk));
             addr += left_in_chunk;
             start += left_in_chunk;
@@ -203,7 +198,6 @@ class SPIFlash {
         local len = end - start;
         while (len > 0) {
             left_in_chunk = len > 256 ? 256 : len;
-            // server.log(format("Write: addr=%d, start=%d, left=%d", addr, start, left_in_chunk))
             _write(addr, data_r(left_in_chunk));
             addr += left_in_chunk;
             start += left_in_chunk;
@@ -265,43 +259,37 @@ class SPIFlash {
     }
 
     function _write(addr, data) {
-        _wrenable();
-
         _cs_l_w(0);
+
+        _wrenable();
         _spi_w(format("%c%c%c%c", ELECTRICIMP_SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         _spi_w(data);
-        _cs_l_w(1);
-
         _waitForStatus();
+
+        _cs_l_w(1);
     }
 
     function _wrenable(timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
         local now = _millis();
 
-        _cs_l_w(0);
         do {
             _spi_w(ELECTRICIMP_SPIFLASH_WREN);
 
             if ((_spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1] & 0x03) == 0x02) {
-                _cs_l_w(1);
                 return true;
             }
         } while (_millis() - now < timeout);
 
-        _cs_l_w(1);
         throw SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED;
     }
 
     function _waitForStatus(mask = 0x01, value = 0x00, timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
         local now = _millis();
-        _cs_l_w(0);
         do {
             if ((_spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1] & mask) == value) {
-                _cs_l_w(0);
                 return;
             }
         } while (_millis() - now < timeout);
-        _cs_l_w(0);
 
         throw SPI_WAITFORSTATUS_TIMEOUT;
     }
