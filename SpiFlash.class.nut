@@ -277,34 +277,31 @@ class SPIFlash {
 
     function _wrenable(timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
         local now = _millis();
-        do {
-            _cs_l_w(0);
-            _spi_w(ELECTRICIMP_SPIFLASH_WREN);
-            _cs_l_w(1);
 
-            if ((_getStatus() & 0x03) == 0x02) return true;
+        _cs_l_w(0);
+        do {
+            _spi_w(ELECTRICIMP_SPIFLASH_WREN);
+
+            if ((_spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1] & 0x03) == 0x02) {
+                _cs_l_w(1);
+                return true;
+            }
         } while (_millis() - now < timeout);
 
-        throw SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED;
-
-    }
-
-    function _getStatus() {
-        _cs_l_w(0);
-        local status = _spi_wr(ELECTRICIMP_SPIFLASH_RDSR);
         _cs_l_w(1);
-
-        return status[1];
+        throw SPI_ELECTRICIMP_SPIFLASH_WRENABLE_FAILED;
     }
 
     function _waitForStatus(mask = 0x01, value = 0x00, timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
         local now = _millis();
-
+        _cs_l_w(0);
         do {
-            if ((_getStatus() & mask) == value) {
+            if ((_spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1] & mask) == value) {
+                _cs_l_w(0);
                 return;
             }
         } while (_millis() - now < timeout);
+        _cs_l_w(0);
 
         throw SPI_WAITFORSTATUS_TIMEOUT;
     }
