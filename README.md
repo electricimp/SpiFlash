@@ -34,7 +34,7 @@ spiFlash <- SPIFlash(spi, cs);
 
 The SPIFlash class conforms to the [hardware.spiflash] API, and all methods available to the hardware.spiflash object are available to instantiated SPIFlash objects. For more in depth usage and examples, see the [hardware.spiflash documentation](https://electricimp.com/docs/api/hardware/spiflash).
 
-### configure([dataRate_kHz])
+### configure(*[dataRate_kHz]*)
 
 The configure method will autoconfigure the SPI bus passed into the constructor, and return the set datarate.
 
