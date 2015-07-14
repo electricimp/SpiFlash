@@ -6,7 +6,6 @@
 
 // Declare fully namespaced constants (ACCOUNT_CLASS_CONST)
 // We used consts rather than statics for hardware optimization
-
 const ELECTRICIMP_SPIFLASH_WREN     = "\x06";       // write enable
 const ELECTRICIMP_SPIFLASH_RDID     = "\x9F";       // read identification
 const ELECTRICIMP_SPIFLASH_RDSR     = "\x05\x00";   // read status register
@@ -152,7 +151,7 @@ class SPIFlash {
     }
 
     // spiflash.write(integer, blob, const, integer, integer) - Writes a full or partial blob into the SPI flash.
-    function write(address, data, verification = 0, data_start = null, data_end = null) {
+    function write(address, data, verification = 0, data_start = null, data_end = null, chunk = 256) {
         // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
 
@@ -179,7 +178,8 @@ class SPIFlash {
         // Preverify if requested
         if (verification & SPIFLASH_PREVERIFY) {
             data.seek(data_start);
-            if (!_preverify(data, address, data_end-data_start)) {
+            // if (!_preverify(data, address, data_end-data_start)) {
+            if (!_preverify(data, address, 0, data_end-data_start)) {
                 throw "PREVERIFY FAILED";
                 return SPIFLASH_PREVERIFY;
             }
@@ -190,7 +190,7 @@ class SPIFlash {
         data.seek(start);
 
         // Realign to the chunk boundary
-        local left_in_chunk = 256 - (addr % 256);
+        local left_in_chunk = chunk - (addr % chunk);
         if (left_in_chunk > 0) {
             _write(addr, data_r(left_in_chunk));
             addr += left_in_chunk;
@@ -200,7 +200,7 @@ class SPIFlash {
         // Write the remaining data in 256 byte chunks
         local len = end - start;
         while (len > 0) {
-            left_in_chunk = len > 256 ? 256 : len;
+            left_in_chunk = len > chunk ? chunk : len;
             _write(addr, data_r(left_in_chunk));
             addr += left_in_chunk;
             start += left_in_chunk;
@@ -210,7 +210,7 @@ class SPIFlash {
         // Post verify if requested
         if (verification & SPIFLASH_POSTVERIFY) {
             data.seek(data_start);
-            if (!_postverify(data, address, data_end-data_start)) {
+            if (!_postverify(data, address, 0, data_end-data_start)) {
                 return SPIFLASH_POSTVERIFY;
             }
         }
@@ -220,52 +220,63 @@ class SPIFlash {
 
 
     //-------------------- PRIVATE METHODS --------------------//
-    function _preverify(data, addr, len, chunk = 256) {
-        // Verify in chunks no bigger than 256 bytes
+    function _preverify(data, spiAddr, blobAddr, len, chunk = 512) {
+        // If we're processing a chunk
         if (len <= chunk) {
-            local olddata = read(addr, len);
+            local olddata = read(spiAddr, len).tostring();
             if (olddata.len() != len) return false;
+
+            data.seek(blobAddr);
+            local newdata = data.readstring(len);
+
+            for(local i = 0; i < len; i++) {
+                if ((olddata[i] & newdata[i]) != newdata[i]) return false;
+            }
 
             // If we have more than 4 bytes to read, read as long int
             // otherwise read as a single byte
-            local readbyte = len < 4 ? 'b' : 'i';
-            local inc = len < 4 ? 1 : 4;
-
-            for (local i = 0; i < len; i+=inc) {
-                local pre = olddata.readn(readbyte);
-                local it = data.readn(readbyte);
-                if ((pre & it) != it) return false;
-            }
-
             return true;
         }
+
+        // If we need to chunk the data
         do {
-            local result = _preverify(data, addr, len >= chunk ? chunk : len, chunk);
+            local result = _preverify(data, spiAddr, blobAddr, len >= chunk ? chunk : len, chunk);
             if (result == false) return false;
+
             len -= chunk;
-            addr += chunk;
+            spiAddr += chunk;
+            blobAddr += chunk;
         } while (len > 0);
 
         return true;
     }
 
-
-    function _postverify(data, addr, len) {
-        // Verify in chunks no bigger than 256 bytes
-        if (len <= 256) {
-            local newdata = read(addr, len)
+    function _postverify(data, spiAddr, blobAddr, len, chunk = 512) {
+        // If we're processing a chunk
+        if (len <= chunk) {
+            local newdata = read(spiAddr, len).tostring();
             if (newdata.len() != len) return false;
-            for (local i = 0; i < len; i++) {
-                if (newdata.readn('b') != data.readn('b')) return false;
-            }
-        } else {
-            do {
-                local result = _postverify(data, addr, len >= 256 ? 256 : len);
-                if (result == false) return false;
-                len -= 256;
-                addr += 256;
-            } while (len > 0);
+
+            data.seek(blobAddr);
+            local olddata = data.readstring(len);
+
+            if (olddata != newdata) return false;
+
+            // If we have more than 4 bytes to read, read as long int
+            // otherwise read as a single byte
+            return true;
         }
+
+        // If we need to chunk the data
+        do {
+            local result = _postverify(data, spiAddr, blobAddr, len >= chunk ? chunk : len, chunk);
+            if (result == false) return false;
+
+            len -= chunk;
+            spiAddr += chunk;
+            blobAddr += chunk;
+        } while (len > 0);
+
         return true;
     }
 
