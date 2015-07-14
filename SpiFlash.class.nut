@@ -102,6 +102,8 @@ class SPIFlash {
         _cs_l_w(0);
         _spi_w(SPIFLASH_RDP);
         _cs_l_w(1);
+
+        imp.sleep(0.05);
     }
 
     // spiflash.chipid() - Returns the identity of the SPI flash chip.
