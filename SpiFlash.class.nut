@@ -27,7 +27,6 @@ const SPIFLASH_SECTOR_SIZE = 4096;
 const SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds (should be 10 seconds)
 
 class SPIFlash {
-
     // Library version
     _version = [1, 0, 0];
 
@@ -182,7 +181,6 @@ class SPIFlash {
             data.seek(data_start);
             // if (!_preverify(data, address, data_end-data_start)) {
             if (!_preverify(data, address, 0, data_end-data_start)) {
-                throw "PREVERIFY FAILED";
                 return SPIFLASH_PREVERIFY;
             }
         }
@@ -289,6 +287,10 @@ class SPIFlash {
         _spi_w(data);
         _cs_l_w(1);
 
+        // if status register is already set, don't need to call _waitForStatus
+        _cs_l_w(0); local status = _spi_wr(SPIFLASH_RDSR)[1]; _cs_l_w(1);
+        if ((status & 0x01) == 0x00) return;
+
         _waitForStatus();
     }
 
@@ -309,7 +311,6 @@ class SPIFlash {
         } while (_millis() >= end);
 
         throw SPI_WRENABLE_FAILED;
-
     }
 
     function _waitForStatus(mask = 0x01, value = 0x00, timeout = SPIFLASH_COMMAND_TIMEOUT) {
