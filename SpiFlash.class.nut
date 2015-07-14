@@ -6,25 +6,25 @@
 
 // Declare fully namespaced constants (ACCOUNT_CLASS_CONST)
 // We used consts rather than statics for hardware optimization
-const ELECTRICIMP_SPIFLASH_WREN     = "\x06";       // write enable
-const ELECTRICIMP_SPIFLASH_RDID     = "\x9F";       // read identification
-const ELECTRICIMP_SPIFLASH_RDSR     = "\x05\x00";   // read status register
-const ELECTRICIMP_SPIFLASH_READ     = "\x03%c%c%c"; // read data
-const ELECTRICIMP_SPIFLASH_SE       = "\x20%c%c%c"; // sector erase (Any 4kbyte sector set to 0xff)
-const ELECTRICIMP_SPIFLASH_PP       = "\x02%c%c%c"; // page program
-const ELECTRICIMP_SPIFLASH_DP       = "\xB9";       // deep power down
-const ELECTRICIMP_SPIFLASH_RDP      = "\xAB";       // release from deep power down
+const SPIFLASH_WREN     = "\x06";       // write enable
+const SPIFLASH_RDID     = "\x9F";       // read identification
+const SPIFLASH_RDSR     = "\x05\x00";   // read status register
+const SPIFLASH_READ     = "\x03%c%c%c"; // read data
+const SPIFLASH_SE       = "\x20%c%c%c"; // sector erase (Any 4kbyte sector set to 0xff)
+const SPIFLASH_PP       = "\x02%c%c%c"; // page program
+const SPIFLASH_DP       = "\xB9";       // deep power down
+const SPIFLASH_RDP      = "\xAB";       // release from deep power down
 
-const ELECTRICIMP_SPIFLASH_WRDI     = "\x04";       // write disable - unused
-const ELECTRICIMP_SPIFLASH_BE       = "\x52";       // block erase (Any 64kbyte sector set to 0xff) - unused
-const ELECTRICIMP_SPIFLASH_CE       = "\x60";       // chip erase (full device set to 0xff) - unused
-const ELECTRICIMP_SPIFLASH_RES      = "\xAB";       // read electronic ID - unused
-const ELECTRICIMP_SPIFLASH_REMS     = "\x90";       // read electronic mfg & device ID - unused
+const SPIFLASH_WRDI     = "\x04";       // write disable - unused
+const SPIFLASH_BE       = "\x52";       // block erase (Any 64kbyte sector set to 0xff) - unused
+const SPIFLASH_CE       = "\x60";       // chip erase (full device set to 0xff) - unused
+const SPIFLASH_RES      = "\xAB";       // read electronic ID - unused
+const SPIFLASH_REMS     = "\x90";       // read electronic mfg & device ID - unused
 
-const ELECTRICIMP_SPIFLASH_BLOCK_SIZE = 65536;
-const ELECTRICIMP_SPIFLASH_SECTOR_SIZE = 4096;
+const SPIFLASH_BLOCK_SIZE = 65536;
+const SPIFLASH_SECTOR_SIZE = 4096;
 
-const ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds (should be 10 seconds)
+const SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds (should be 10 seconds)
 
 class SPIFlash {
 
@@ -77,7 +77,7 @@ class SPIFlash {
         // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
 
-        return _blocks * ELECTRICIMP_SPIFLASH_BLOCK_SIZE;
+        return _blocks * SPIFLASH_BLOCK_SIZE;
     }
 
     // spiflash.disable() - Disables the SPI flash for reading and writing.
@@ -88,7 +88,7 @@ class SPIFlash {
         _enabled = false;
 
         _cs_l_w(0);
-        _spi_w(ELECTRICIMP_SPIFLASH_DP);
+        _spi_w(SPIFLASH_DP);
         _cs_l_w(1);
     }
 
@@ -100,7 +100,7 @@ class SPIFlash {
         _enabled = true;
 
         _cs_l_w(0);
-        _spi_w(ELECTRICIMP_SPIFLASH_RDP);
+        _spi_w(SPIFLASH_RDP);
         _cs_l_w(1);
     }
 
@@ -110,7 +110,7 @@ class SPIFlash {
         if (!_enabled) throw SPI_NOT_ENABLED;
 
         _cs_l_w(0);
-        _spi_w(ELECTRICIMP_SPIFLASH_RDID);
+        _spi_w(SPIFLASH_RDID);
         local data = _spi.readblob(3);
         _cs_l_w(1);
 
@@ -121,12 +121,12 @@ class SPIFlash {
     function erasesector(sector) {
         // Throw error if disabled
         if (!_enabled) throw SPI_NOT_ENABLED;
-        if ((sector % ELECTRICIMP_SPIFLASH_SECTOR_SIZE) != 0) throw SPI_SECTOR_BOUNDARY;
+        if ((sector % SPIFLASH_SECTOR_SIZE) != 0) throw SPI_SECTOR_BOUNDARY;
 
         _wrenable();
 
         _cs_l_w(0);
-        _spi_w(format(ELECTRICIMP_SPIFLASH_SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
+        _spi_w(format(SPIFLASH_SE, (sector >> 16) & 0xFF, (sector >> 8) & 0xFF, sector & 0xFF));
         _cs_l_w(1);
 
         _waitForStatus();
@@ -138,7 +138,7 @@ class SPIFlash {
         if (!_enabled) throw SPI_NOT_ENABLED;
 
         _cs_l_w(0);
-        _spi_w(format(ELECTRICIMP_SPIFLASH_READ, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
+        _spi_w(format(SPIFLASH_READ, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         local readBlob = _spi.readblob(bytes);
         _cs_l_w(1);
 
@@ -283,7 +283,7 @@ class SPIFlash {
         _wrenable();
 
         _cs_l_w(0);
-        _spi_w(format(ELECTRICIMP_SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
+        _spi_w(format(SPIFLASH_PP, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF));
         _spi_w(data);
         _cs_l_w(1);
 
@@ -291,16 +291,16 @@ class SPIFlash {
     }
 
     // -------------------------------------------------------------------------
-    function _wrenable(timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
+    function _wrenable(timeout = SPIFLASH_COMMAND_TIMEOUT) {
         local end = _millis()+timeout;
 
         do {
             _cs_l_w(0);
-            _spi_w(ELECTRICIMP_SPIFLASH_WREN);
+            _spi_w(SPIFLASH_WREN);
             _cs_l_w(1);
 
             _cs_l_w(0);
-            local status = _spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1];
+            local status = _spi_wr(SPIFLASH_RDSR)[1];
             _cs_l_w(1);
 
             if ((status & 0x03) == 0x02) return true;
@@ -310,11 +310,11 @@ class SPIFlash {
 
     }
 
-    function _waitForStatus(mask = 0x01, value = 0x00, timeout = ELECTRICIMP_SPIFLASH_COMMAND_TIMEOUT) {
+    function _waitForStatus(mask = 0x01, value = 0x00, timeout = SPIFLASH_COMMAND_TIMEOUT) {
         local end = _millis()+timeout;
         do {
             _cs_l_w(0);
-            local status = _spi_wr(ELECTRICIMP_SPIFLASH_RDSR)[1];
+            local status = _spi_wr(SPIFLASH_RDSR)[1];
             _cs_l_w(1);
 
             if ((status & mask) == value) return;
