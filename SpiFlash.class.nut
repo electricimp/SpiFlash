@@ -15,11 +15,11 @@ const SPIFLASH_PP       = "\x02%c%c%c"; // page program
 const SPIFLASH_DP       = "\xB9";       // deep power down
 const SPIFLASH_RDP      = "\xAB";       // release from deep power down
 
-const SPIFLASH_WRDI     = "\x04";       // write disable - unused
-const SPIFLASH_BE       = "\x52";       // block erase (Any 64kbyte sector set to 0xff) - unused
-const SPIFLASH_CE       = "\x60";       // chip erase (full device set to 0xff) - unused
-const SPIFLASH_RES      = "\xAB";       // read electronic ID - unused
-const SPIFLASH_REMS     = "\x90";       // read electronic mfg & device ID - unused
+const SPIFLASH_WRDI     = 0x04;         // write disable - unused
+const SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff) - unused
+const SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff) - unused
+const SPIFLASH_RES      = 0xAB;         // read electronic ID - unused
+const SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID - unused
 
 const SPIFLASH_BLOCK_SIZE = 65536;
 const SPIFLASH_SECTOR_SIZE = 4096;
