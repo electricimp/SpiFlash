@@ -15,11 +15,11 @@ const ELECTRICIMP_SPIFLASH_PP       = "\x02%c%c%c"; // page program
 const ELECTRICIMP_SPIFLASH_DP       = "\xB9";       // deep power down
 const ELECTRICIMP_SPIFLASH_RDP      = "\xAB";       // release from deep power down
 
-const ELECTRICIMP_SPIFLASH_WRDI     = 0x04;         // write disable - unused
-const ELECTRICIMP_SPIFLASH_BE       = 0x52;         // block erase (Any 64kbyte sector set to 0xff) - unused
-const ELECTRICIMP_SPIFLASH_CE       = 0x60;         // chip erase (full device set to 0xff) - unused
-const ELECTRICIMP_SPIFLASH_RES      = 0xAB;         // read electronic ID - unused
-const ELECTRICIMP_SPIFLASH_REMS     = 0x90;         // read electronic mfg & device ID - unused
+const ELECTRICIMP_SPIFLASH_WRDI     = "\x04";       // write disable - unused
+const ELECTRICIMP_SPIFLASH_BE       = "\x52";       // block erase (Any 64kbyte sector set to 0xff) - unused
+const ELECTRICIMP_SPIFLASH_CE       = "\x60";       // chip erase (full device set to 0xff) - unused
+const ELECTRICIMP_SPIFLASH_RES      = "\xAB";       // read electronic ID - unused
+const ELECTRICIMP_SPIFLASH_REMS     = "\x90";       // read electronic mfg & device ID - unused
 
 const ELECTRICIMP_SPIFLASH_BLOCK_SIZE = 65536;
 const ELECTRICIMP_SPIFLASH_SECTOR_SIZE = 4096;
@@ -229,12 +229,11 @@ class SPIFlash {
             data.seek(blobAddr);
             local newdata = data.readstring(len);
 
+            // Check to make sure we're not setting any 0's to 1's
             for(local i = 0; i < len; i++) {
                 if ((olddata[i] & newdata[i]) != newdata[i]) return false;
             }
 
-            // If we have more than 4 bytes to read, read as long int
-            // otherwise read as a single byte
             return true;
         }
 
