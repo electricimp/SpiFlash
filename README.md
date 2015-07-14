@@ -4,7 +4,7 @@ The SPIFlash class allows you to use a SPI Flash on the imp001 and imp002 with a
 
 **To add this library to your project, add `#require "SPIFlash.class.nut:1.0.0"`` to the top of your device code.**
 
-You can view the library’s source code on [GitHub](github.com/electricimp/spiflash/tree/v1.0.0).
+You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflash/tree/v1.0.0).
 
 ## Class Usage
 
