@@ -102,7 +102,11 @@ class SPIFlash {
         _spi_w(SPIFLASH_RDP);
         _cs_l_w(1);
 
-        imp.sleep(0.05);
+        // if status register is already set, don't need to call _waitForStatus
+        _cs_l_w(0); local status = _spi_wr(SPIFLASH_RDSR)[1]; _cs_l_w(1);
+        if ((status & 0x01) == 0x00) return;
+
+        _waitForStatus();
     }
 
     // spiflash.chipid() - Returns the identity of the SPI flash chip.
@@ -308,7 +312,7 @@ class SPIFlash {
             _cs_l_w(1);
 
             if ((status & 0x03) == 0x02) return true;
-        } while (_millis() >= end);
+        } while (_millis() < end);
 
         throw SPI_WRENABLE_FAILED;
     }
@@ -321,7 +325,7 @@ class SPIFlash {
             _cs_l_w(1);
 
             if ((status & mask) == value) return;
-        } while (_millis() >= timeout);
+        } while (_millis() < end);
 
         throw SPI_WAITFORSTATUS_TIMEOUT;
     }
