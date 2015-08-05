@@ -1,10 +1,10 @@
-# SPIFlash 1.0.0
+# SPIFlash 1.0.1
 
 The SPIFlash class allows you to use a SPI Flash on the imp001 and imp002 with an interface similar to [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash).
 
-**To add this library to your project, add `#require "SPIFlash.class.nut:1.0.0"`` to the top of your device code.**
+**To add this library to your project, add `#require "SPIFlash.class.nut:1.0.1"`` to the top of your device code.**
 
-You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflash/tree/v1.0.0).
+You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflash/tree/v1.0.1).
 
 ## Class Usage
 
@@ -20,7 +20,7 @@ The class’ constructor takes two required parameters (a configured [hardware.s
 | blocks        | number       | 64      | The nubmer of 64K blocks on the SPIFlash |
 
 ```squirrel
-#require "SPIFlash.class.nut:1.0.0"
+#require "SPIFlash.class.nut:1.0.1"
 
 spi <- hardware.spi257;
 spi.configure(CLOCK_IDLE_LOW | MSB_FIRST, 30000);
@@ -39,7 +39,7 @@ The SPIFlash class conforms to the [hardware.spiflash] API, and all methods avai
 The configure method will autoconfigure the SPI bus passed into the constructor, and return the set datarate.
 
 ```squirrel
-#require "SPIFlash.class.nut:1.0.0"
+#require "SPIFlash.class.nut:1.0.1"
 
 spiFlash <- SPIFlash(hardware.spi257, hardware.pin8);
 spiFlash.configure(30000);
