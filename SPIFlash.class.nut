@@ -28,7 +28,7 @@ const SPIFLASH_COMMAND_TIMEOUT = 10000; // milliseconds (should be 10 seconds)
 
 class SPIFlash {
     // Library version
-    _version = [1, 0, 0];
+    _version = [1, 0, 1];
 
     // class members
     _spi = null;
@@ -173,7 +173,6 @@ class SPIFlash {
 
             // Replace all the parameters
             data = newdata;
-            start = end = null;
         }
 
         // Fix up the parameters
@@ -182,9 +181,8 @@ class SPIFlash {
 
         // Preverify if requested
         if (verification & SPIFLASH_PREVERIFY) {
-            data.seek(data_start);
-            // if (!_preverify(data, address, data_end-data_start)) {
-            if (!_preverify(data, address, 0, data_end-data_start)) {
+            data.seek(start);
+            if (!_preverify(data, address, start, end-start)) {
                 return SPIFLASH_PREVERIFY;
             }
         }
@@ -213,8 +211,8 @@ class SPIFlash {
 
         // Post verify if requested
         if (verification & SPIFLASH_POSTVERIFY) {
-            data.seek(data_start);
-            if (!_postverify(data, address, 0, data_end-data_start)) {
+            data.seek(start);
+            if (!_postverify(data, address, start, end-start)) {
                 return SPIFLASH_POSTVERIFY;
             }
         }
