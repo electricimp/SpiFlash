@@ -181,8 +181,9 @@ class SPIFlash {
 
         // Preverify if requested
         if (verification & SPIFLASH_PREVERIFY) {
-            data.seek(start);
-            if (!_preverify(data, address, start, end-start)) {
+            data.seek(data_start);
+            // if (!_preverify(data, address, data_end-data_start)) {
+            if (!_preverify(data, address, data_start, data_end-data_start)) {
                 return SPIFLASH_PREVERIFY;
             }
         }
@@ -211,8 +212,8 @@ class SPIFlash {
 
         // Post verify if requested
         if (verification & SPIFLASH_POSTVERIFY) {
-            data.seek(start);
-            if (!_postverify(data, address, start, end-start)) {
+            data.seek(data_start);
+            if (!_postverify(data, address, data_start, data_end-data_start)) {
                 return SPIFLASH_POSTVERIFY;
             }
         }
