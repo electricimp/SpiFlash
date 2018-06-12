@@ -1,23 +1,20 @@
-# SPIFlash 1.0.1
+# SPIFlash #
 
-The SPIFlash class allows you to use a SPI Flash on the imp001 and imp002 with an interface similar to [hardware.spiflash](https://electricimp.com/docs/api/hardware/spiflash).
+The SPIFlash class allows you to use a SPI Flash on the imp001 and imp002 with an interface similar to [hardware.spiflash](https://developer.electricimp.com/api/hardware/spiflash).
 
-**To add this library to your project, add `#require "SPIFlash.class.nut:1.0.1"`` to the top of your device code.**
+**To add this library to your project, add** `#require "SPIFlash.class.nut:1.0.1"` **to the top of your device code.**
 
-You can view the library’s source code on [GitHub](https://github.com/electricimp/spiflash/tree/v1.0.1).
+## Class Usage ##
 
-## Class Usage
+### Constructor: SPIFlash(*spi, cs_l[, blocks]*) ###
 
-### Constructor: SPIFlash(*spi, cs_l, [blocks]*)
-
-The class’ constructor takes two required parameters (a configured [hardware.spi](https://electricimp.com/docs/api/hardware/spi) object, and a [hardware.pin](https://electricimp.com/docs/api/hardware/pin1)) and an optional parameter (the I&sup2;C address of the sensor):
-
+The class’ constructor takes two required parameters (a configured [**hardware.spi**](https://developer.electricimp.com/api/hardware/spi) object, and a [**hardware.pin**](https://developer.electricimp.com/api/hardware/pin)) and an optional parameter (the I&sup2;C address of the sensor):
 
 | Parameter     | Type         | Default | Description |
 | ------------- | ------------ | ------- | ----------- |
-| spi           | hardware.i2c | N/A     | A pre-configured spi bus |
+| spi           | hardware.i2c | N/A     | A pre-configured SPI bus |
 | cs_l          | hardware.pin | N/A     | The chip select pin      |
-| blocks        | number       | 64      | The nubmer of 64K blocks on the SPIFlash |
+| blocks        | number       | 64      | The number of 64K blocks on the SPIFlash |
 
 ```squirrel
 #require "SPIFlash.class.nut:1.0.1"
@@ -30,13 +27,13 @@ cs <- hardware.pin8;
 spiFlash <- SPIFlash(spi, cs);
 ```
 
-## Class Methods
+## Class Methods ##
 
-The SPIFlash class conforms to the [hardware.spiflash] API, and all methods available to the hardware.spiflash object are available to instantiated SPIFlash objects. For more in depth usage and examples, see the [hardware.spiflash documentation](https://electricimp.com/docs/api/hardware/spiflash).
+The SPIFlash class conforms to the [hardware.spiflash] API, and all methods available to the hardware.spiflash object are available to instantiated SPIFlash objects. For more in depth usage and examples, see the [hardware.spiflash documentation](https://developer.electricimp.com/api/hardware/spiflash).
 
-### configure(*[dataRate_kHz]*)
+### configure(*[dataRate_kHz]*) ###
 
-The configure method will autoconfigure the SPI bus passed into the constructor, and return the set datarate.
+The configure method will configure the SPI bus passed into the constructor, and return the set datarate.
 
 ```squirrel
 #require "SPIFlash.class.nut:1.0.1"
@@ -45,42 +42,42 @@ spiFlash <- SPIFlash(hardware.spi257, hardware.pin8);
 spiFlash.configure(30000);
 ```
 
-## chipid()
+### chipid() ###
 
 Returns the identity code of the SPI flash chip.
 
-See [hardware.spiflash.chipid()](https://electricimp.com/docs/api/hardware/spiflash/chipid) for more information.
+See [**hardware.spiflash.chipid()**](https://developer.electricimp.com/api/hardware/spiflash/chipid) for more information.
 
 ```squirrel
 spiFlash.enable();
 server.log(spiFlash.chipid());
 ```
 
-## disable()
+### disable() ###
 
 Disables the SPI flash for reading and writing.
 
-See [hardware.spiflash.disable()](https://electricimp.com/docs/api/hardware/spiflash/disable) for more information.
+See [**hardware.spiflash.disable()**](https://developer.electricimp.com/api/hardware/spiflash/disable) for more information.
 
 ```squirrel
 spiFlash.disable();
 ```
 
-## enable()
+### enable() ###
 
 Enables the SPI flash for reading and writing.
 
-See [hardware.spiflash.enable()](https://electricimp.com/docs/api/hardware/spiflash/enable) for more information.
+See [**hardware.spiflash.enable()**](https://developer.electricimp.com/api/hardware/spiflash/enable) for more information.
 
 ```squirrel
 spiFlash.enable();
 ```
 
-## erasesector(*sectorAddress*)
+### erasesector(*sectorAddress*) ###
 
 Erases a 4KB sector of the SPI flash.
 
-See [hardware.spiflash.erasesector()](https://electricimp.com/docs/api/hardware/spiflash/erasesector) for more information.
+See [**hardware.spiflash.erasesector()**](https://developer.electricimp.com/api/hardware/spiflash/erasesector) for more information.
 
 ```squirrel
 // Erase the first 3 sectors
@@ -89,12 +86,11 @@ spiFlash.erasesector(0x1000);
 spiFlash.erasesector(0x2000);
 ```
 
-
-## read(*address, numberOfBytes*)
+### read(*address, numberOfBytes*) ###
 
 Copies data from the SPI flash and returns it as a series of bytes.
 
-See [hardware.spiflash.read()](https://electricimp.com/docs/api/hardware/spiflash/read) for more information.
+See [hardware.spiflash.read()](https://developer.electricimp.com/api/hardware/spiflash/read) for more information.
 
 ```squirrel
 spiFlash.enable();
@@ -103,11 +99,11 @@ local buffer = spiFlash.read(0x2000, 36);
 spiFlash.disable();
 ```
 
-## readintoblob(*address, targetBlob, numberOfBytes*)
+### readintoblob(*address, targetBlob, numberOfBytes*) ###
 
 Copies data from the SPI flash storage into a pre-existing blob.
 
-See [hardware.spiflash.readintoblob()](https://electricimp.com/docs/api/hardware/spiflash/readintoblob) for more information.
+See [**hardware.spiflash.readintoblob()**](https://developer.electricimp.com/api/hardware/spiflash/readintoblob) for more information.
 
 ```squirrel
 buffer <- blob(1024);
@@ -118,23 +114,23 @@ spiFlash.readintoblob(0x2000, buffer, 256);
 spiFlash.disable();
 ```
 
-## size()
+### size() ###
 
 Returns the total number of bytes in the SPI flash that are available to Squirrel.
 
-See [hardware.spiflash.size()](https://electricimp.com/docs/api/hardware/spiflash/size) for more information.
+See [**hardware.spiflash.size()**](https://developer.electricimp.com/api/hardware/spiflash/size) for more information.
 
 ```squirrel
 spiFlash.enable();
 server.log(spiFlash.size() + " Bytes");
 ```
 
-## write(*address, dataSource, writeFlags, startIndex, endIndex*)
+### write(*address, dataSource, writeFlags, startIndex, endIndex*) ###
 
 Writes a full or partial blob into the SPI flash.
 
-See [hardware.spiflash.write()](https://electricimp.com/docs/api/hardware/spiflash/write) for more information.
+See [**hardware.spiflash.write()**](https://developer.electricimp.com/api/hardware/spiflash/write) for more information.
 
-# License
+## License ##
 
 The SPIFlash class is licensed under [MIT License](https://github.com/electricimp/spiflash/tree/master/LICENSE).
